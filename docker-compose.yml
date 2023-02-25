@@ -1,0 +1,65 @@
+version: "3"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - .:/usr/src/app
+    stdin_open: true
+    tty: true
+    env_file:
+      - env/api.env
+    command: sh -c "rm -f tmp/pids/server.pid && bundle exec rails s -p 3000 -b '0.0.0.0'"
+    ports:
+      - 3101:3000
+    depends_on:
+      - db
+      - redis
+    networks:
+      - opensearch-api-network
+    container_name: api
+
+  db:
+    image: mysql:8.0.32
+    volumes:
+      - db-data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+    ports:
+      - 3102:3306
+    networks:
+      - opensearch-api-network
+
+  redis:
+    image: redis:7.0
+    volumes:
+      - redis-data:/data
+    networks:
+      - opensearch-api-network
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:7.16.3
+    environment:
+      - cluster.name=docker-cluster
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - opensearch-api-network
+
+volumes:
+  db-data:
+    driver: local
+  redis-data:
+    driver: local
+
+networks:
+  opensearch-api-network:
+    driver: bridge
